@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  auth-python:
+    build: ./backend-python
+    ports:
+      - "8001:8001"
+    environment:
+      - DB_HOST=111.231.145.50
+      - DB_PORT=2345
+      - DB_NAME=thinking
+      - DB_USER=postgres
+      - DB_PASSWORD=tech-coffee
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/api/auth/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  auth-python-backup:
+    build: ./backend-python
+    ports:
+      - "8011:8001"
+    environment:
+      - DB_HOST=111.231.145.50
+      - DB_PORT=2345
+      - DB_NAME=thinking
+      - DB_USER=postgres
+      - DB_PASSWORD=tech-coffee
+    restart: unless-stopped
+
+  module-java:
+    build: ./backend-java
+    ports:
+      - "8002:8002"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://111.231.145.50:2345/thinking
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=tech-coffee
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/api/modules/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  module-java-backup:
+    build: ./backend-java
+    ports:
+      - "8012:8002"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://111.231.145.50:2345/thinking
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=tech-coffee
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - auth-python
+      - module-java
+    restart: unless-stopped

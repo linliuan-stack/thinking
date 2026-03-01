@@ -1,0 +1,15 @@
+server:
+  port: 8002
+
+spring:
+  datasource:
+    url: jdbc:postgresql://111.231.145.50:2345/thinking
+    username: postgres
+    password: tech-coffee
+    driver-class-name: org.postgresql.Driver
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+
+logging:
+  level:
+    com.thinking: DEBUG
