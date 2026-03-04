@@ -22,8 +22,18 @@ Thinking Platform is a multi-service application with three independently runnin
 
 See `README.md` Quick Start section for commands. All three services must be running for the full application to work.
 
+### Experiment Module
+
+The experiment module provides drug dose-response assay (孔板) management:
+- 96-well plate editor with batch fill support
+- Statistics: grouped by compound+concentration, computes mean/max/min/std
+- 4-Parameter Logistic (4PL) curve fitting via scipy for IC50 calculation
+- ECharts dose-response charts with fitted curves
+
+The curve fitting API is at `/api/experiment/curve-fit/{plate_id}` and requires at least 4 concentration data points per compound.
+
 ### Linting / Testing
 
 - Frontend: `cd frontend && npx vue-tsc --noEmit` (type check), `cd frontend && npx vite build` (build check)
-- Python: `cd backend-python && python -m py_compile main.py` (syntax check)
+- Python: `cd backend-python && python -m py_compile main.py experiment.py` (syntax check)
 - Java: `cd backend-java && mvn compile` (compile check)

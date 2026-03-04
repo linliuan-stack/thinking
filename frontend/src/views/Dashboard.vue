@@ -90,6 +90,7 @@
             <el-card
               :class="['module-card', { 'module-disabled': !perm.can_access }]"
               shadow="hover"
+              @click="handleModuleClick(perm)"
             >
               <div class="module-icon">
                 <el-icon :size="36" :color="perm.can_access ? getIconColor(perm.service_type) : '#c0c4cc'">
@@ -166,6 +167,15 @@ const handleCommand = (command: string) => {
     userStore.logout()
     ElMessage.success('已退出登录')
     router.push('/login')
+  }
+}
+
+function handleModuleClick(perm: Permission) {
+  if (!perm.can_access) return ElMessage.warning('无权限访问此模块')
+  if (perm.module_name === '实验管理') {
+    router.push('/experiment')
+  } else {
+    ElMessage.info(`${perm.module_name} 模块开发中...`)
   }
 }
 

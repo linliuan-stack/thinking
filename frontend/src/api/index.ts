@@ -42,6 +42,39 @@ export const authApi = {
   },
 }
 
+export const experimentApi = {
+  listExperiments() {
+    return api.get('/experiment/experiments')
+  },
+  createExperiment(name: string, description?: string) {
+    return api.post('/experiment/experiments', { name, description })
+  },
+  deleteExperiment(id: number) {
+    return api.delete(`/experiment/experiments/${id}`)
+  },
+  listPlates(experimentId: number) {
+    return api.get(`/experiment/plates/${experimentId}`)
+  },
+  createPlate(experimentId: number, name: string, rows: number = 8, cols: number = 12) {
+    return api.post('/experiment/plates', { experiment_id: experimentId, name, rows, cols })
+  },
+  deletePlate(plateId: number) {
+    return api.delete(`/experiment/plates/${plateId}`)
+  },
+  getWells(plateId: number) {
+    return api.get(`/experiment/wells/${plateId}`)
+  },
+  batchUpdateWells(plateId: number, wells: any[]) {
+    return api.post('/experiment/wells/batch', { plate_id: plateId, wells })
+  },
+  getStatistics(plateId: number) {
+    return api.get(`/experiment/statistics/${plateId}`)
+  },
+  getCurveFit(plateId: number) {
+    return api.get(`/experiment/curve-fit/${plateId}`)
+  },
+}
+
 export const moduleApi = {
   getModules() {
     return api.get('/modules')

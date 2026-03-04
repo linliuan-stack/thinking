@@ -6,8 +6,10 @@ from typing import Optional
 
 from auth import verify_password, get_password_hash, create_access_token, get_current_user
 from database import get_db
+from experiment import router as experiment_router
 
 app = FastAPI(title="Thinking Auth Service", version="1.0.0")
+app.include_router(experiment_router)
 
 app.add_middleware(
     CORSMiddleware,
