@@ -138,8 +138,9 @@ function renderCharts() {
     const el = chartRefs[compound.compound]
     if (!el) continue
 
-    if (chartInstances[compound.compound]) {
-      chartInstances[compound.compound].dispose()
+    const existing = chartInstances[compound.compound]
+    if (existing) {
+      existing.dispose()
     }
 
     const chart = echarts.init(el)

@@ -1,67 +1,114 @@
-version: '3.8'
+# ============================================================
+#  Thinking Platform — Docker Compose
+#  启动顺序: db-init → python/java backends → frontend → nginx
+# ============================================================
 
 services:
+
+  # ── Step 0: Database Schema Init (run once, then exit) ───
+  db-init:
+    image: python:3.12-slim
+    working_dir: /work
+    volumes:
+      - ./sql:/work/sql
+    environment:
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+    entrypoint: ["sh", "-c", "pip install -q psycopg2-binary && python sql/db_init.py"]
+    restart: "no"
+
+  # ── Step 1a: Python Auth + Experiment Service (Primary) ──
   auth-python:
     build: ./backend-python
+    image: ${REGISTRY:-}${REGISTRY:+/}thinking-python:${TAG:-latest}
     ports:
       - "8001:8001"
     environment:
-      - DB_HOST=111.231.145.50
-      - DB_PORT=2345
-      - DB_NAME=thinking
-      - DB_USER=postgres
-      - DB_PASSWORD=tech-coffee
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - SECRET_KEY=${SECRET_KEY}
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8001/api/auth/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
 
+  # ── Step 1b: Python Auth + Experiment Service (Backup) ───
   auth-python-backup:
     build: ./backend-python
+    image: ${REGISTRY:-}${REGISTRY:+/}thinking-python:${TAG:-latest}
     ports:
       - "8011:8001"
     environment:
-      - DB_HOST=111.231.145.50
-      - DB_PORT=2345
-      - DB_NAME=thinking
-      - DB_USER=postgres
-      - DB_PASSWORD=tech-coffee
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - SECRET_KEY=${SECRET_KEY}
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
     restart: unless-stopped
 
+  # ── Step 2a: Java Module Service (Primary) ───────────────
   module-java:
     build: ./backend-java
+    image: ${REGISTRY:-}${REGISTRY:+/}thinking-java:${TAG:-latest}
     ports:
       - "8002:8002"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://111.231.145.50:2345/thinking
-      - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=tech-coffee
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
+      - SPRING_DATASOURCE_USERNAME=${DB_USER}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8002/api/modules/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
 
+  # ── Step 2b: Java Module Service (Backup) ────────────────
   module-java-backup:
     build: ./backend-java
+    image: ${REGISTRY:-}${REGISTRY:+/}thinking-java:${TAG:-latest}
     ports:
       - "8012:8002"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://111.231.145.50:2345/thinking
-      - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=tech-coffee
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
+      - SPRING_DATASOURCE_USERNAME=${DB_USER}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
     restart: unless-stopped
 
+  # ── Step 3: Frontend (Vue 3 static build → Nginx) ───────
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        API_BASE_URL: ${API_BASE_URL:-}
+    image: ${REGISTRY:-}${REGISTRY:+/}thinking-frontend:${TAG:-latest}
+    depends_on:
+      - auth-python
+      - module-java
+    restart: unless-stopped
+
+  # ── Step 4: Nginx Gateway (reverse proxy + HA) ──────────
   nginx:
     image: nginx:alpine
     ports:
-      - "80:80"
+      - "${NGINX_PORT:-80}:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - auth-python
+      - auth-python-backup
       - module-java
+      - module-java-backup
+      - frontend
     restart: unless-stopped
