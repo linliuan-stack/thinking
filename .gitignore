@@ -1,0 +1,8 @@
+node_modules/
+dist/
+__pycache__/
+*.pyc
+backend-java/target/
+frontend/dist/
+.env
+*.log
