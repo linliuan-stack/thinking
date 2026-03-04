@@ -131,11 +131,9 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ArrowLeft, Grid, Check, MagicStick } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { useUserStore } from '../../stores/user'
 import { experimentApi } from '../../api'
 
 const route = useRoute()
-const userStore = useUserStore()
 const experimentId = Number(route.params.id)
 const plateId = Number(route.params.plateId)
 
