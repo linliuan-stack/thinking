@@ -6,12 +6,14 @@ set -euo pipefail
 #  用法: ./deploy.sh [命令]
 #
 #  命令:
-#    start    首次部署 / 全量重建 (默认)
-#    update   代码更新后重新部署
-#    stop     停止所有服务
-#    status   查看服务状态
-#    logs     查看日志
-#    restart  重启所有服务
+#    start      首次部署 / 全量重建 (默认)
+#    update     代码更新后重新部署
+#    stop       停止所有服务
+#    status     查看服务状态
+#    logs       查看日志
+#    restart    重启所有服务
+#    build      只构建镜像, 不启动
+#    push       构建并推送镜像到仓库
 # ============================================================
 
 COMPOSE="docker compose"
@@ -42,6 +44,7 @@ check_env() {
         fi
     fi
     log ".env 配置文件已就绪"
+    source .env
 }
 
 case "$CMD" in
@@ -79,7 +82,7 @@ case "$CMD" in
     echo ""
     step "部署完成!"
     echo ""
-    log "访问地址:  http://localhost:$(grep NGINX_PORT .env 2>/dev/null | cut -d= -f2 || echo 80)"
+    log "访问地址:  http://localhost:${NGINX_PORT:-80}"
     echo ""
     log "服务状态:"
     $COMPOSE ps
@@ -108,6 +111,68 @@ case "$CMD" in
     $COMPOSE ps
     ;;
 
+  build)
+    step "构建所有 Docker 镜像"
+    check_env
+
+    SERVICE="${2:-all}"
+    if [ "$SERVICE" = "all" ]; then
+        $COMPOSE build --parallel auth-python module-java frontend
+        log "全部镜像构建完成"
+    else
+        $COMPOSE build "$SERVICE"
+        log "$SERVICE 镜像构建完成"
+    fi
+
+    echo ""
+    echo "已构建的镜像:"
+    docker images | head -1
+    docker images | grep "thinking-"
+    ;;
+
+  push)
+    step "构建并推送镜像到仓库"
+    check_env
+
+    REGISTRY="${REGISTRY:-}"
+    TAG="${TAG:-latest}"
+    if [ -z "$REGISTRY" ]; then
+        err "REGISTRY 未设置。请在 .env 中配置 REGISTRY，例如:"
+        echo "  REGISTRY=docker.io/yourname"
+        echo "  REGISTRY=registry.cn-hangzhou.aliyuncs.com/yourns"
+        echo "  REGISTRY=ghcr.io/yourorg"
+        exit 1
+    fi
+
+    log "仓库: $REGISTRY"
+    log "版本: $TAG"
+
+    step "Step 1/3: 构建镜像"
+    $COMPOSE build --parallel auth-python module-java frontend
+
+    IMAGES=("thinking-python" "thinking-java" "thinking-frontend")
+
+    step "Step 2/3: 推送镜像"
+    for img in "${IMAGES[@]}"; do
+        FULL="${REGISTRY}/${img}:${TAG}"
+        log "推送 $FULL ..."
+        docker push "$FULL"
+        log "$FULL 推送完成"
+    done
+
+    step "Step 3/3: 推送完成"
+    echo ""
+    echo "已推送的镜像:"
+    for img in "${IMAGES[@]}"; do
+        echo "  ${REGISTRY}/${img}:${TAG}"
+    done
+    echo ""
+    echo "在目标服务器上拉取:"
+    for img in "${IMAGES[@]}"; do
+        echo "  docker pull ${REGISTRY}/${img}:${TAG}"
+    done
+    ;;
+
   stop)
     step "停止所有服务"
     $COMPOSE down
@@ -126,10 +191,19 @@ case "$CMD" in
             err "$url → $resp"
         fi
     done
+    echo ""
+    echo "本地镜像:"
+    docker images | head -1
+    docker images | grep "thinking-" || echo "(无)"
     ;;
 
   logs)
-    $COMPOSE logs -f --tail=50
+    SERVICE="${2:-}"
+    if [ -n "$SERVICE" ]; then
+        $COMPOSE logs -f --tail=50 "$SERVICE"
+    else
+        $COMPOSE logs -f --tail=50
+    fi
     ;;
 
   restart)
@@ -140,7 +214,19 @@ case "$CMD" in
     ;;
 
   *)
-    echo "用法: $0 {start|update|stop|status|logs|restart}"
+    echo "Thinking Platform 部署工具"
+    echo ""
+    echo "用法: $0 {命令} [参数]"
+    echo ""
+    echo "命令:"
+    echo "  start           首次部署 / 全量重建"
+    echo "  update          代码更新后增量部署"
+    echo "  build [服务名]  构建镜像 (默认全部, 可指定: frontend / auth-python / module-java)"
+    echo "  push            构建并推送镜像到仓库 (需 .env 中设置 REGISTRY)"
+    echo "  stop            停止所有服务"
+    echo "  status          查看状态 + 健康检查"
+    echo "  logs [服务名]   查看日志 (可选指定服务)"
+    echo "  restart         重启所有服务"
     exit 1
     ;;
 esac

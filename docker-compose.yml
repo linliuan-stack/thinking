@@ -23,6 +23,7 @@ services:
   # ── Step 1a: Python Auth + Experiment Service (Primary) ──
   auth-python:
     build: ./backend-python
+    image: ${REGISTRY:-}${REGISTRY:+/}thinking-python:${TAG:-latest}
     ports:
       - "8001:8001"
     environment:
@@ -40,6 +41,7 @@ services:
   # ── Step 1b: Python Auth + Experiment Service (Backup) ───
   auth-python-backup:
     build: ./backend-python
+    image: ${REGISTRY:-}${REGISTRY:+/}thinking-python:${TAG:-latest}
     ports:
       - "8011:8001"
     environment:
@@ -57,6 +59,7 @@ services:
   # ── Step 2a: Java Module Service (Primary) ───────────────
   module-java:
     build: ./backend-java
+    image: ${REGISTRY:-}${REGISTRY:+/}thinking-java:${TAG:-latest}
     ports:
       - "8002:8002"
     environment:
@@ -71,6 +74,7 @@ services:
   # ── Step 2b: Java Module Service (Backup) ────────────────
   module-java-backup:
     build: ./backend-java
+    image: ${REGISTRY:-}${REGISTRY:+/}thinking-java:${TAG:-latest}
     ports:
       - "8012:8002"
     environment:
@@ -84,7 +88,11 @@ services:
 
   # ── Step 3: Frontend (Vue 3 static build → Nginx) ───────
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        API_BASE_URL: ${API_BASE_URL:-}
+    image: ${REGISTRY:-}${REGISTRY:+/}thinking-frontend:${TAG:-latest}
     depends_on:
       - auth-python
       - module-java
